@@ -1,0 +1,17 @@
+cone_extractor:
+  ros__parameters:
+    topics:
+      input:
+        lidar: "/ouster/points"
+      output:
+        cones: "/cones"
+
+    lidar2baselink:
+      t: [0., 0., 0.] # (x, y, z) [meters]
+      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
+
+    detection:
+      minPts: 4
+      eps: 0.25
+
+    

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <Eigen/Geometry>
+
+
 
 struct Config {
 
@@ -12,8 +15,13 @@ struct Config {
             std::string state;
         } output;
 
+        
+        
     } topics;
+    
+    Eigen::Affine3d lidar2baselink;
 
+    
     // Singleton pattern
     static Config &getInstance() {
         static Config *config = new Config();
