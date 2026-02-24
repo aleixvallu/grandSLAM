@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fexceptions -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -O3")
 
 # Other dependencies
 find_package(Boost REQUIRED COMPONENTS system)
@@ -25,12 +25,14 @@ find_package(GTSAM REQUIRED)
 # ROS2 dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-# find_package(pcl_conversions REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(cat_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
+
+find_package(as_lib CONFIG REQUIRED)
 
 
 include_directories(
@@ -42,10 +44,10 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 ament_target_dependencies(${PROJECT_NAME}
   PUBLIC
     rclcpp
-    # pcl_conversions
     sensor_msgs
     geometry_msgs
     nav_msgs
+    cat_msgs
     tf2
     tf2_ros
     tf2_eigen
@@ -53,9 +55,10 @@ ament_target_dependencies(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+    as_lib::as_lib        
+    gtsam
     ${Boost_LIBRARIES}
     ${TBB_IMPORTED_TARGETS}
-    gtsam
 )
 
 install(TARGETS

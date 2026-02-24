@@ -7,19 +7,51 @@
 
 struct Config {
 
+    bool gtsam_debug;
+    
     struct {
         struct {
             std::string imu;
+            std::string cones;    
         } input;
         struct {
             std::string state;
-        } output;
-
-        
+            std::string cones;
+        } output;       
         
     } topics;
+
+    struct {
+        double gravity;
+        Eigen::Vector3d accel;
+        Eigen::Vector3d gyro;
+    } bias;
+
+    struct{
+        double pose;
+        double lidar;
+        double vel;
+        double gyro;
+        double accel;
+        double biasG;
+        double biasA;
+    } cov;
+
+    struct{
+        int skip;
+        double th;
+    } isam;
+
+    struct{
+        double time;
+        bool accel;
+        bool gyro;
+    } cal;
+
+    double maxSqDist;
     
     Eigen::Affine3d lidar2baselink;
+    Eigen::Affine3d imu2baselink;
 
     
     // Singleton pattern

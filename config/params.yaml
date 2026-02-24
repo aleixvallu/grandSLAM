@@ -1,17 +1,53 @@
-cone_extractor:
+g_slam:
   ros__parameters:
+
+    gtsam_debug: false
+    
+
     topics:
       input:
-        lidar: "/ouster/points"
-      output:
+        imu: "/ouster/imu"
         cones: "/cones"
+      output:
+        state: "/gslam/state"
+        cones: "/gslam/cones"
 
     lidar2baselink:
       t: [0., 0., 0.] # (x, y, z) [meters]
       R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
-    detection:
-      minPts: 4
-      eps: 0.25
+    imu2baselink:
+      t: [0., 0., 0.0] # (x, y, z) [meters]
+      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
+    bias:
+      accel: [0.0001, 0.0001, 0.0001]  # [m/s^2]
+      gyro:  [0.0001, 0.0001, 0.0001]  # [rad/s]
+      gravity: 0.
+
+    maxSqDist: 0.001
     
+    covariance:
+      pose: 0.001            # [m] 
+      lidar: 0.001          # [m]
+      velocity: 0.01         # [m/s] 
+      gyro: 6.01e-4          # [rad/s^2]
+      accel: 1.53e-2        # [m^2]
+      biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
+      biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
+
+
+
+      # gyro: 6.01e-4         # [rad/s^2]
+      # accel: 1.53e-2        # [m^2]
+      # biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
+      # biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
+
+    ISAM: 
+      skip:       1
+      threshold:  0.001     #0.001
+
+    calibration:
+      time: 5.0
+      accel: true
+      gyro: false
