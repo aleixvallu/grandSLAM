@@ -24,8 +24,8 @@ struct Cone {
     int idx;
 
     Cone() : x(0.0), y(0.0), z(0.0), idx(0) {}
-    Cone(double a, double b, double c) : x(a), y(c), z(c), idx(0) {}
-    Cone(double a, double b, double c, int i) : x(a), y(c), z(c), idx(i) {}
+    Cone(double a, double b, double c) : x(a), y(b), z(c), idx(0) {}
+    Cone(double a, double b, double c, int i) : x(a), y(b), z(c), idx(i) {}
 
     Eigen::Vector3d toEigen() const {
       return Eigen::Vector3d(x, y, z);

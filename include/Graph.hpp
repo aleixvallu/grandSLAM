@@ -43,6 +43,7 @@ class Graph {
     PreintegratedImuMeasurements preImu;
 
     NavState prevX;
+    NavState state;
     imuBias::ConstantBias prevB;
 
     as_lib::structures::Octree<Cone> octree;
@@ -97,7 +98,7 @@ public:
         auto params = PreintegrationParams::MakeSharedU(cfg.bias.gravity); // U es de g Up D seria de Doww
         params->setAccelerometerCovariance(I_3x3 * cfg.cov.accel);
         params->setGyroscopeCovariance(I_3x3 * cfg.cov.gyro);
-        params->setIntegrationCovariance(I_3x3 * 0.1);
+        params->setIntegrationCovariance(I_3x3 * cfg.cov.process);
         params->setUse2ndOrderCoriolis(false);
         params->setOmegaCoriolis(Vector3(0, 0, 0));
         preImu = PreintegratedImuMeasurements(params, biasImu);
@@ -114,7 +115,8 @@ public:
     void addImu(const Imu &imu, double dt) {
 
         preImu.integrateMeasurement(imu.lin_accel, imu.ang_vel, dt);
-
+        state = preImu.predict(prevX, prevB);
+        
     }
 
 
@@ -142,6 +144,7 @@ public:
 
         Cones toAdd;
         Pose3 actualPose = nextX.pose();
+        // Pose3 actualPose = prevX.pose();
         for(int i = 0; i < N; i++) { 
 
             const Cone &c = cones[i];
@@ -192,20 +195,25 @@ public:
         // Overwrite the beginning of the preintegration for the next step.
         prevX = NavState(result.at<Pose3>(X(nImu)), result.at<Vector3>(V(nImu)));
         prevB = result.at<imuBias::ConstantBias>(B(nImu));
+        state = prevX;
 
         // Reset the preintegration object.
         preImu.resetIntegrationAndSetBias(prevB);
     }
     
-    Eigen::Quaterniond R() const { return prevX.quaternion(); }
-    Eigen::Vector3d t() const { return prevX.t(); }
+    Eigen::Quaterniond R() const { return state.quaternion(); }
+    Eigen::Vector3d t() const { return state.t(); }
+
+    Cones cones() {
+        return octree.getData<Cones>();
+    }
 
     // TODO: posar w si la utilitzo
 
     Eigen::Matrix< double, 6, 1 > v_w() const
     {
         Eigen::Matrix< double, 6, 1 > v_w;
-        v_w.head<3>() = prevX.v();
+        v_w.head<3>() = state.v();
         v_w.tail<3>().setZero();
         return v_w;
     }

@@ -35,6 +35,7 @@ struct Config {
         double accel;
         double biasG;
         double biasA;
+        double process;
     } cov;
 
     struct{

@@ -15,12 +15,14 @@ class Manager : public rclcpp::Node {
     Graph g;
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub;
-    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr coneSub;
+    rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr coneSub;
     // rclcpp::Subscription<cat_msgs::msg::ConeArray>::SharedPtr coneSub;
 
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr statePub;
     // rclcpp::Publisher<cat_msgs::msg::ConeArray>::SharedPtr conesPub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr conesPub;
+
 
   public:
 
@@ -38,7 +40,7 @@ class Manager : public rclcpp::Node {
         );
 
         
-        coneSub = this->create_subscription<geometry_msgs::msg::PoseArray>(
+        coneSub = this->create_subscription<visualization_msgs::msg::MarkerArray>(
             cfg.topics.input.cones, rclcpp::QoS(rclcpp::KeepLast(1)),
             std::bind(&Manager::conesCallback, this, std::placeholders::_1)
         );
@@ -51,7 +53,7 @@ class Manager : public rclcpp::Node {
 
         statePub = this->create_publisher<nav_msgs::msg::Odometry>(cfg.topics.output.state, 10);
         // conesPub = this->create_publisher<cat_msgs::msg::ConeArray>(cfg.topics.output.cones, 10);
-
+        conesPub = this->create_publisher<visualization_msgs::msg::MarkerArray>(cfg.topics.output.cones, 10);
 
         
     }
@@ -106,9 +108,12 @@ class Manager : public rclcpp::Node {
 
 
         prevImu = imu;
+
+        rclcpp::Time stamp = msg->header.stamp;
+        statePub->publish(toROS(g, stamp));
     }
 
-    void conesCallback(const geometry_msgs::msg::PoseArray::ConstSharedPtr &msg) {
+    void conesCallback(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
 
         if (not calibratedImu) 
             return;
@@ -117,9 +122,9 @@ class Manager : public rclcpp::Node {
 
         g.addCones(cones);
 
-        rclcpp::Time stamp = msg->header.stamp;
+        rclcpp::Time stamp = msg->markers[0].header.stamp;
         statePub->publish(toROS(g, stamp));
-
+        conesPub->publish(toROS(g.cones(), stamp));
     }
 
 };

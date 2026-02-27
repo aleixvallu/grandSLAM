@@ -3,9 +3,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 
-#include <geometry_msgs/msg/pose_array.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "cat_msgs/msg/cone_array.hpp"
 
@@ -51,14 +51,13 @@ Imu fromROS(const sensor_msgs::msg::Imu::ConstSharedPtr &msg) {
     return imu;
 }
 
-Cones fromROS(const geometry_msgs::msg::PoseArray::ConstSharedPtr &msg) {
+Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
     
     Config &cfg = Config::getInstance();
     
     Cones cones;
-    for (const auto &p : msg->poses) {
-        Cone cone(p.position.x, p.position.y, p.position.z);
-        
+    for (const auto &p : msg->markers) {
+        Cone cone(p.pose.position.x, p.pose.position.y, p.pose.position.z);
         cones.push_back(cfg.lidar2baselink * cone);
     }
 
@@ -109,6 +108,42 @@ nav_msgs::msg::Odometry toROS(const Graph &state, rclcpp::Time stamp) {
 }
 
 
+visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stamp) {
+    visualization_msgs::msg::MarkerArray msg;
+
+
+    msg.markers.resize(cones.size());
+    for (int i = 0; i < cones.size(); i++) {
+
+        msg.markers[i].header.stamp    = stamp;
+        msg.markers[i].header.frame_id = "global";
+        msg.markers[i].ns              = "cones";
+        msg.markers[i].id              = i;
+        msg.markers[i].type            = visualization_msgs::msg::Marker::CYLINDER;
+        msg.markers[i].action          = visualization_msgs::msg::Marker::ADD;
+
+        // pose
+        msg.markers[i].pose.position.x = cones[i].x;
+        msg.markers[i].pose.position.y = cones[i].y;
+        msg.markers[i].pose.position.z = 0.0;
+
+        // fixed cylinder scale
+        msg.markers[i].scale.x = 0.2;
+        msg.markers[i].scale.y = 0.2;
+        msg.markers[i].scale.z = 0.3;
+
+        // fully opaque
+        msg.markers[i].color.a = 1.0f;
+        msg.markers[i].color.r = 0.5f; 
+        msg.markers[i].color.g = 0.5f;
+        msg.markers[i].color.b = 0.5f;
+
+    }
+    return msg;
+
+}
+
+
 void fill_config(Config &cfg, rclcpp::Node *node) {
 
     node->get_parameter("gtsam_debug", cfg.gtsam_debug);
@@ -130,6 +165,8 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
     node->get_parameter("maxSqDist", cfg.maxSqDist);
 
     node->get_parameter("covariance.pose", cfg.cov.pose);
+    node->get_parameter("covariance.process", cfg.cov.process);
+
     node->get_parameter("covariance.lidar", cfg.cov.lidar); 
     node->get_parameter("covariance.velocity", cfg.cov.vel);
     node->get_parameter("covariance.gyro", cfg.cov.gyro);

@@ -25,12 +25,13 @@ g_slam:
       gyro:  [0.0001, 0.0001, 0.0001]  # [rad/s]
       gravity: 0.
 
-    maxSqDist: 0.001
+    maxSqDist: 0.25
     
     covariance:
+      process: 0.001
       pose: 0.001            # [m] 
       lidar: 0.001          # [m]
-      velocity: 0.01         # [m/s] 
+      velocity: 0.001         # [m/s] 
       gyro: 6.01e-4          # [rad/s^2]
       accel: 1.53e-2        # [m^2]
       biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
@@ -48,6 +49,6 @@ g_slam:
       threshold:  0.001     #0.001
 
     calibration:
-      time: 5.0
+      time: 2.0
       accel: true
-      gyro: false
+      gyro: true
