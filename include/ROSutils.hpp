@@ -55,8 +55,16 @@ Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
     
     Config &cfg = Config::getInstance();
     
+    // TODO: Tornar a afegir el priemr punt del msg (ara serveix per fer el delete markers)
+
     Cones cones;
+    bool first = true;
     for (const auto &p : msg->markers) {
+        if (first) { 
+            first = false; 
+            continue; 
+        }
+
         Cone cone(p.pose.position.x, p.pose.position.y, p.pose.position.z);
         cones.push_back(cfg.lidar2baselink * cone);
     }

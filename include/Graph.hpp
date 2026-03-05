@@ -144,7 +144,6 @@ public:
 
         Cones toAdd;
         Pose3 actualPose = nextX.pose();
-        // Pose3 actualPose = prevX.pose();
         for(int i = 0; i < N; i++) { 
 
             const Cone &c = cones[i];

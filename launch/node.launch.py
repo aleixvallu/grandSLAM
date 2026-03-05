@@ -8,6 +8,7 @@ def generate_launch_description():
 
         
     cones = Node(
+        # prefix=['gnome-terminal -- gdb --args'],
         package='cone_extractor',
         executable='cone_extractor',
         name='cone_extractor',
