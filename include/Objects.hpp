@@ -32,7 +32,7 @@ struct Cone {
     }
 };
 
-inline Cone operator*(const Eigen::Affine3d& A, const Cone& c) {
+inline Cone operator*(const Eigen::Isometry3d& A, const Cone& c) {
 
     Eigen::Vector3d v = A * c.toEigen();
     return Cone(v.x(), v.y(), v.z());

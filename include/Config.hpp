@@ -51,8 +51,8 @@ struct Config {
 
     double maxSqDist;
     
-    Eigen::Affine3d lidar2baselink;
-    Eigen::Affine3d imu2baselink;
+    Eigen::Isometry3d lidar2baselink;
+    Eigen::Isometry3d imu2baselink;
 
     
     // Singleton pattern

@@ -20,33 +20,12 @@ Imu fromROS(const sensor_msgs::msg::Imu::ConstSharedPtr &msg) {
     imu.stamp = rclcpp::Time(msg->header.stamp).seconds();
 
     tf2::fromMsg(msg->angular_velocity, imu.ang_vel);
-    imu.ang_vel = cfg.imu2baselink * imu.ang_vel;
 
     tf2::fromMsg(msg->linear_acceleration, imu.lin_accel);
-    imu.lin_accel = cfg.imu2baselink * imu.lin_accel;
  
     tf2::fromMsg(msg->orientation, imu.q);
     imu.q.normalize();
 
-
-    // imu.ang_vel = Eigen::Vector3d(
-    //     msg->angular_velocity.x,
-    //     msg->angular_velocity.y,
-    //     msg->angular_velocity.z
-    // );
-
-    // imu.lin_accel = Eigen::Vector3d(
-    //     msg->linear_acceleration.x,
-    //     msg->linear_acceleration.y,
-    //     msg->linear_acceleration.z,
-    // );
-
-    // imu.q = Eigen::Quaterniond(
-    //     msg->orientation.x,
-    //     msg->orientation.y,
-    //     msg->orientation.z,
-    //     msg->orientation.w
-    // );
 
     return imu;
 }
@@ -66,7 +45,7 @@ Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
         }
 
         Cone cone(p.pose.position.x, p.pose.position.y, p.pose.position.z);
-        cones.push_back(cfg.lidar2baselink * cone);
+        cones.push_back(cone);
     }
 
     return cones;
@@ -78,38 +57,22 @@ Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
 
 
 nav_msgs::msg::Odometry toROS(const Graph &state, rclcpp::Time stamp) {
+    Config &cfg = Config::getInstance();
+
     nav_msgs::msg::Odometry msg;
 
     msg.header.frame_id = "global";
     msg.header.stamp = stamp;
 
-    msg.pose.pose.position = tf2::toMsg(state.t());
 
-    msg.pose.pose.orientation = tf2::toMsg(state.R());
+    
+    Eigen::Isometry3d T = state.isometry() * cfg.imu2baselink.inverse();
 
-    msg.twist.twist = tf2::toMsg(state.v_w());
-
-    // Eigen::Vector3d pos = state.t();
-    // msg.pose.pose.position.x = pos.x();
-    // msg.pose.pose.position.y = pos.y();
-    // msg.pose.pose.position.z = pos.z();
-
-
-    // Eigen::Quaterniond rot = state.R();
-    // msg.pose.pose.orientation.x = rot.x();
-    // msg.pose.pose.orientation.y = rot.y();
-    // msg.pose.pose.orientation.z = rot.z();
-    // msg.pose.pose.orientation.w = rot.w();
-
-    // Eigen::Vector3d vel = state.v();
-    // msg.twist.twist.angular.x = vel.x();
-    // msg.twist.twist.angular.y = vel.y();
-    // msg.twist.twist.angular.z = vel.z();
+    msg.pose.pose.position = tf2::toMsg(Eigen::Vector3d(T.translation()));
+    msg.pose.pose.orientation = tf2::toMsg(Eigen::Quaterniond(T.linear()));
 
     // TODO: mirar com posar w
-    // msg.twist.twist.linear.x =  ;
-    // msg.twist.twist.linear.y =  ;
-    // msg.twist.twist.linear.z =  ;
+    msg.twist.twist = tf2::toMsg(state.v_w());
 
 
     return msg;
@@ -117,10 +80,13 @@ nav_msgs::msg::Odometry toROS(const Graph &state, rclcpp::Time stamp) {
 
 
 visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stamp) {
+    Config &cfg = Config::getInstance();
+    
     visualization_msgs::msg::MarkerArray msg;
 
 
     msg.markers.resize(cones.size());
+
     for (int i = 0; i < cones.size(); i++) {
 
         msg.markers[i].header.stamp    = stamp;
@@ -131,9 +97,10 @@ visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stam
         msg.markers[i].action          = visualization_msgs::msg::Marker::ADD;
 
         // pose
-        msg.markers[i].pose.position.x = cones[i].x;
-        msg.markers[i].pose.position.y = cones[i].y;
-        msg.markers[i].pose.position.z = 0.0;
+        Eigen::Vector3d rCone = cfg.imu2baselink.inverse() * cones[i].toEigen();
+        msg.markers[i].pose.position.x = rCone.x();
+        msg.markers[i].pose.position.y = rCone.y();
+        msg.markers[i].pose.position.z = rCone.z();
 
         // fixed cylinder scale
         msg.markers[i].scale.x = 0.2;

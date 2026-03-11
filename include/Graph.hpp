@@ -45,6 +45,8 @@ class Graph {
     NavState prevX;
     NavState state;
     imuBias::ConstantBias prevB;
+    
+    // Pose3 ext;  
 
     as_lib::structures::Octree<Cone> octree;
 
@@ -57,10 +59,10 @@ public:
         Config &cfg = Config::getInstance();
 
         // Initial pose
-        Pose3 x0(Rot3(), Point3(0.0, 0.0, 0.0));
+        Pose3 x0(Rot3(Eigen::Quaterniond(cfg.imu2baselink.linear())), 
+                 Point3(cfg.imu2baselink.translation()));
         Vector3 v0(0.0, 0.0, 0.0);
-
-        
+      
         biasImu = imuBias::ConstantBias(
                 cfg.bias.accel,
                 cfg.bias.gyro
@@ -132,12 +134,18 @@ public:
         initial.insert(V(nImu), nextX.v());
         initial.insert(B(nImu), prevB);
 
+        // if(nextX.pose().equals(Pose3(), 1.) && nImu > 100) {
+        //     // loopClosed = true;
+        //     // ImuFactor loopClousre(X(nImu - 1), V(nImu - 1), X(0), V(nImu), B(nImu -1), preImu);
+        //     // g.add(loopClousre);
+        // } 
+        
         ImuFactor iFact(X(nImu - 1), V(nImu - 1), X(nImu), V(nImu), B(nImu -1), preImu);
         g.add(iFact);
         
+
         imuBias::ConstantBias zeroBias;
         g.add(BetweenFactor<imuBias::ConstantBias>(B(nImu - 1), B(nImu), zeroBias, biasNoise));
-        // g.add(BetweenFactor<imuBias::ConstantBias>(B(nImu - 1), B(nImu), biasImu, biasNoise));
 
 
         int N = cones.size();
@@ -207,8 +215,14 @@ public:
         return octree.getData<Cones>();
     }
 
+    Eigen::Isometry3d isometry() const {
+        Eigen::Isometry3d I;
+        I.linear() = R().toRotationMatrix();
+        I.translation() = t();
+        return I;
+    }
+    
     // TODO: posar w si la utilitzo
-
     Eigen::Matrix< double, 6, 1 > v_w() const
     {
         Eigen::Matrix< double, 6, 1 > v_w;
