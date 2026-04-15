@@ -9,12 +9,12 @@ def generate_launch_description():
         
     cones = Node(
         # prefix=['gnome-terminal -- gdb --args'],
-        package='cone_extractor',
-        executable='cone_extractor',
-        name='cone_extractor',
+        package='conehub',
+        executable='conehub',
+        name='conehub',
         output='screen',
         parameters=[os.path.join(
-        get_package_share_directory('cone_extractor'),
+        get_package_share_directory('conehub'),
         'config',
         'params.yaml')]
     )

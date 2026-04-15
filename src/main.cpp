@@ -58,6 +58,35 @@ class Manager : public rclcpp::Node {
         // conesPub = this->create_publisher<cat_msgs::msg::ConeArray>(cfg.topics.output.cones, 10);
         conesPub = this->create_publisher<visualization_msgs::msg::MarkerArray>(cfg.topics.output.cones, 10);
 
+        auto tfBr = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+        geometry_msgs::msg::TransformStamped tfMsg;
+        tfMsg.header.stamp = this->get_clock()->now();
+        tfMsg.header.frame_id = "global";        // parent
+        tfMsg.child_frame_id = "lidar";       // child
+
+        Eigen::Vector3d T(cfg.lidar2baselink.translation());
+        tfMsg.transform.translation.x = T.x();
+        tfMsg.transform.translation.y = T.y();
+        tfMsg.transform.translation.z = T.z();
+
+        tfMsg.transform.rotation = tf2::toMsg(Eigen::Quaterniond(cfg.lidar2baselink.linear()));
+
+        tfBr->sendTransform(tfMsg);
+
+
+        tfMsg.header.frame_id = "global";
+        tfMsg.child_frame_id = "base_link";
+
+        tfMsg.transform.translation.x = 0.0;
+        tfMsg.transform.translation.y = 0.0;
+        tfMsg.transform.translation.z = 0.0;
+
+        tfMsg.transform.rotation.x = 0.0;
+        tfMsg.transform.rotation.y = 0.0;
+        tfMsg.transform.rotation.z = 0.0;
+        tfMsg.transform.rotation.w = 1.0;
+
+        tfBr->sendTransform(tfMsg);
     }
 
 

@@ -28,14 +28,17 @@ struct Config {
     } bias;
 
     struct{
-        double pose;
-        double lidar;
-        double vel;
         double gyro;
         double accel;
         double biasG;
         double biasA;
         double process;
+        struct {
+            double pose;
+            double vel;
+            double lidar;
+            double bias;
+        } initial;
     } cov;
 
     struct{

@@ -6,7 +6,7 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/navigation/ImuFactor.h>
+#include <gtsam/navigation/CombinedImuFactor.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
@@ -30,23 +30,20 @@ class Graph {
 
     int nImu = 0;
     int nLidar = 0;
-    
-    imuBias::ConstantBias biasImu;
 
-    noiseModel::Diagonal::shared_ptr biasNoise;
     noiseModel::Diagonal::shared_ptr lidarNoise;
 
     Values initial;
 
     ISAM2 solver;
 
-    PreintegratedImuMeasurements preImu;
+    PreintegratedCombinedMeasurements preImu;
 
     NavState prevX;
     NavState state;
     imuBias::ConstantBias prevB;
     
-    // Pose3 ext;  
+    bool loopClosed;  
 
     as_lib::structures::Octree<Cone> octree;
 
@@ -63,7 +60,7 @@ public:
                  Point3(cfg.imu2baselink.translation()));
         Vector3 v0(0.0, 0.0, 0.0);
       
-        biasImu = imuBias::ConstantBias(
+        imuBias::ConstantBias biasImu(
                 cfg.bias.accel,
                 cfg.bias.gyro
         );
@@ -73,12 +70,9 @@ public:
         initial.insert(B(nImu), biasImu);
 
         // Noise
-        auto poseNoise = noiseModel::Isotropic::Sigma(6, cfg.cov.pose);  // rad, rad, rad, m, m, m  
-        auto velNoise = noiseModel::Isotropic::Sigma(3, 0.1);           // m/s
-        biasNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 
-                Eigen::Vector3d::Constant(cfg.cov.biasA),       // m, m, m,
-                Eigen::Vector3d::Constant(cfg.cov.biasG)        // rad, rad, rad
-        ).finished());  
+        auto poseNoise = noiseModel::Isotropic::Sigma(6, cfg.cov.initial.pose);  // rad, rad, rad, m, m, m  
+        auto velNoise = noiseModel::Isotropic::Sigma(3, cfg.cov.initial.vel);           // m/s
+        auto biasNoise = noiseModel::Isotropic::Sigma(6, cfg.cov.initial.bias); 
 
         // Prior
         g.addPrior(X(nImu), x0, poseNoise);
@@ -97,16 +91,19 @@ public:
 
 
         // Imu cov 
-        auto params = PreintegrationParams::MakeSharedU(cfg.bias.gravity); // U es de g Up D seria de Doww
+        auto params = PreintegrationCombinedParams::MakeSharedU(cfg.bias.gravity); // U ==> Up, D ==> Down
+        params->setIntegrationCovariance(I_3x3 * cfg.cov.process);
         params->setAccelerometerCovariance(I_3x3 * cfg.cov.accel);
         params->setGyroscopeCovariance(I_3x3 * cfg.cov.gyro);
-        params->setIntegrationCovariance(I_3x3 * cfg.cov.process);
+        params->setBiasAccCovariance(I_3x3 * cfg.cov.biasA);
+        params->setBiasOmegaCovariance(I_3x3 * cfg.cov.biasG);
+        params->setBiasAccOmegaInit(I_6x6 * cfg.cov.initial.bias);
         params->setUse2ndOrderCoriolis(false);
         params->setOmegaCoriolis(Vector3(0, 0, 0));
-        preImu = PreintegratedImuMeasurements(params, biasImu);
+        preImu = PreintegratedCombinedMeasurements(params, biasImu);
 
 
-        lidarNoise = noiseModel::Isotropic::Sigma(3, cfg.cov.lidar);
+        lidarNoise = noiseModel::Isotropic::Sigma(3, cfg.cov.initial.lidar);
 
         octree.setBucketSize(2);
         octree.setDownsample(false);
@@ -134,19 +131,17 @@ public:
         initial.insert(V(nImu), nextX.v());
         initial.insert(B(nImu), prevB);
 
-        // if(nextX.pose().equals(Pose3(), 1.) && nImu > 100) {
-        //     // loopClosed = true;
-        //     // ImuFactor loopClousre(X(nImu - 1), V(nImu - 1), X(0), V(nImu), B(nImu -1), preImu);
-        //     // g.add(loopClousre);
-        // } 
+        if(nImu > 100 && nextX.pose().equals(Pose3(Rot3(Eigen::Quaterniond(cfg.imu2baselink.linear())), 
+                                            Point3(cfg.imu2baselink.translation())), 1.)) {
+            loopClosed = true;
+                                                
+            std::cout << "Closed loop" << std::endl;
+        }
+
         
-        ImuFactor iFact(X(nImu - 1), V(nImu - 1), X(nImu), V(nImu), B(nImu -1), preImu);
+        CombinedImuFactor iFact(X(nImu - 1), V(nImu - 1), X(nImu), V(nImu), B(nImu -1), B(nImu), preImu);
         g.add(iFact);
         
-
-        imuBias::ConstantBias zeroBias;
-        g.add(BetweenFactor<imuBias::ConstantBias>(B(nImu - 1), B(nImu), zeroBias, biasNoise));
-
 
         int N = cones.size();
 
@@ -162,7 +157,9 @@ public:
             std::vector<float> sqDistances;
             octree.knn(p, 1, neighbors, sqDistances);       
 
-            if(octree.size() == 0 || sqDistances[0] > cfg.maxSqDist) {
+            if(octree.size() == 0 || sqDistances[0] > cfg.maxSqDist * (1 + 0.5 * loopClosed)) {
+                if(loopClosed) 
+                    continue;
 
                 LandmarkFactor lFact(X(nImu), L(nLidar), c.toEigen(), lidarNoise);
                 g.add(lFact);
@@ -193,7 +190,7 @@ public:
             GTSAM_PRINT(result);
 
         Matrix covX = solver.marginalCovariance(X(nImu));
-        std::cout << "Cov X" << nImu << ":\n" << covX << std::endl;
+        // std::cout << "Cov X" << nImu << ":\n" << covX << std::endl;
 
         // Reset g & initial
         g.resize(0);

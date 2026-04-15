@@ -139,15 +139,18 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
 
     node->get_parameter("maxSqDist", cfg.maxSqDist);
 
-    node->get_parameter("covariance.pose", cfg.cov.pose);
-    node->get_parameter("covariance.process", cfg.cov.process);
 
-    node->get_parameter("covariance.lidar", cfg.cov.lidar); 
-    node->get_parameter("covariance.velocity", cfg.cov.vel);
     node->get_parameter("covariance.gyro", cfg.cov.gyro);
     node->get_parameter("covariance.accel", cfg.cov.accel);
     node->get_parameter("covariance.biasGyro", cfg.cov.biasG);
     node->get_parameter("covariance.biasAccel", cfg.cov.biasA);
+    node->get_parameter("covariance.process", cfg.cov.process);
+
+    node->get_parameter("covariance.initial.pose", cfg.cov.initial.pose);
+    node->get_parameter("covariance.initial.lidar", cfg.cov.initial.lidar); 
+    node->get_parameter("covariance.initial.velocity", cfg.cov.initial.vel);
+    node->get_parameter("covariance.initial.bias", cfg.cov.initial.bias);
+
 
     node->get_parameter("ISAM.skip", cfg.isam.skip);
     node->get_parameter("ISAM.threshold", cfg.isam.th);

@@ -8,34 +8,59 @@ g_slam:
       input:
         imu: "/ouster/imu"
         # imu: "/os1_cloud_node/imu"
-        cones: "/cones"
+        cones: "/as/p/observations"
       output:
-        state: "/gslam/state"
-        cones: "/gslam/cones"
+        state: "/as/slam/state"
+        cones: "/as/p/cones"
+
+    # # OUSTER2
+    # # RUN-0 2024-12-15 --> time: 0.25
+    imu2baselink:
+      t: [0., 0., 0.98]  # (x, y, z) [meters]
+      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
     lidar2baselink:
       t: [0., 0., 0.98] # (x, y, z) [meters]
-      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
+      R: [0., 0., 0.] # roll, pitch, yaw [deg]
 
-    imu2baselink:
-      t: [0., 0., 0.98] # (x, y, z) [meters]
-      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
-    
+    # # RUN-14 2024-10-11 --> time: 10.
+    # imu2baselink:
+    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
+    #   R: [1., 0., 0.]  # roll, pitch, yaw [deg]
 
     # lidar2baselink:
-    #       t: [0., 0., 0.0] # (x, y, z) [meters]
-    #       R: [0., -5.5, 90.]  # roll, pitch, yaw [deg]
+    #   t: [0., 0., 0.98] # (x, y, z) [meters]
+    #   R: [1., 0., 0.] # roll, pitch, yaw [deg]
 
+    # # EV_RUN-2 2025-05-17 --> time: 3.
+    # # EV_RUN-3 2025-05-17 --> time: 3.
     # imu2baselink:
-    #   t: [0., 0., 0.0] # (x, y, z) [meters]
-    #   R: [0., -5.5, 90.]  # roll, pitch, yaw [deg]
+    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
+    #   R: [0., -6., 90.]  # roll, pitch, yaw [deg]
+
+    # lidar2baselink:
+    #   t: [0., 0., 0.98] # (x, y, z) [meters]
+    #   R: [0., -6., 90.] # roll, pitch, yaw [deg]
+
+    # # EV_RUN-6 2024-12-01 --> time: 3. 
+    # # EV_RUN-4 2024-12-18 --> time: 1.  NETWORKING DAY 1/2 RUN
+    # # RUN-71 2024-12-22 --> time: 3.
+    # imu2baselink:
+    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
+    #   R: [1., -3., 0.]  # roll, pitch, yaw [deg]
+
+    # lidar2baselink:
+    #   t: [0., 0., 0.98] # (x, y, z) [meters]
+    #   R: [1., -3., 0.] # roll, pitch, yaw [deg]
+
+
 
     bias:
       accel: [0.0001, 0.0001, 0.0001]  # [m/s^2]
       gyro:  [0.0001, 0.0001, 0.0001]  # [rad/s]
-      gravity: 0.
-      # gravity: 9.8984
+      # gravity: 0.
+      gravity: 9.81
 
 
     # maxSqDist: 0.062
@@ -44,21 +69,26 @@ g_slam:
 
     
     covariance:
-      process: 0.001
-      pose: 0.001            # [m] 
-      lidar: 0.001          # [m]
-      velocity: 0.001         # [m/s] 
       gyro: 6.01e-4          # [rad/s^2]
       accel: 1.53e-2        # [m^2]
       biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
       biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
+      process: 0.01
+      
+      initial: 
+        pose: 0.01            # [m] 
+        velocity: 0.1         # [m/s] 
+        lidar: 0.001          # [m]
+        bias: 0.01 
+        
+
 
 
     ISAM: 
       skip:       1
-      threshold:  0.001
+      threshold:  0.01
 
     calibration:
       time: 1.0
-      accel: true
-      gyro: true
+      accel: false
+      gyro: false
