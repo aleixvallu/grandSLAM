@@ -7,7 +7,6 @@ Panels:
         - /Global Options1
         - /Status1
         - /CONES1
-        - /GTSAM1
         - /GTSAM1/Status1
       Splitter Ratio: 0.5
     Tree Height: 739
@@ -139,13 +138,13 @@ Visualization Manager:
       Enabled: true
       Name: TRACKER
       Namespaces:
-        {}
+        cones: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /gslam/cones
+        Value: /as/p/cones
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz_default_plugins/Odometry
@@ -286,7 +285,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.405397653579712
+      Pitch: 1.4003976583480835
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
       Yaw: 3.0253968238830566

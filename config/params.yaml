@@ -2,7 +2,7 @@ g_slam:
   ros__parameters:
 
     gtsam_debug: false
-    
+
 
     topics:
       input:
@@ -60,14 +60,16 @@ g_slam:
       accel: [0.0001, 0.0001, 0.0001]  # [m/s^2]
       gyro:  [0.0001, 0.0001, 0.0001]  # [rad/s]
       # gravity: 0.
-      gravity: 9.81
+      gravity: 9.80665
 
 
-    # maxSqDist: 0.062
-    # maxSqDist: 0.09
-    maxSqDist: 0.25
+    # maxSqDist: 0.062  # 
+    # maxSqDist: 0.09   # 0.3 m
+    maxSqDist: 0.25     # 0.5 m
 
     
+    closingDist: 2.0
+
     covariance:
       gyro: 6.01e-4          # [rad/s^2]
       accel: 1.53e-2        # [m^2]
@@ -78,7 +80,7 @@ g_slam:
       initial: 
         pose: 0.01            # [m] 
         velocity: 0.1         # [m/s] 
-        lidar: 0.001          # [m]
+        lidar: 0.01          # [m]
         bias: 0.01 
         
 
@@ -86,9 +88,9 @@ g_slam:
 
     ISAM: 
       skip:       1
-      threshold:  0.01
+      threshold:  0.1
 
     calibration:
-      time: 1.0
-      accel: false
-      gyro: false
+      time: 0.25
+      accel: true
+      gyro: true

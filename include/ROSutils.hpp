@@ -138,6 +138,7 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
     node->get_parameter("bias.gravity", cfg.bias.gravity);
 
     node->get_parameter("maxSqDist", cfg.maxSqDist);
+    node->get_parameter("closingDist", cfg.closingDist);
 
 
     node->get_parameter("covariance.gyro", cfg.cov.gyro);

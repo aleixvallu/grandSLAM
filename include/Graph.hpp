@@ -43,7 +43,14 @@ class Graph {
     NavState state;
     imuBias::ConstantBias prevB;
     
-    bool loopClosed;  
+
+    bool loopClosed = false;  
+    bool changed = true;
+    Point2 finishLine;
+
+    // Define y < mx + n perpendicular to the starting point
+	double m = 0.0; // Slope
+	double n = 0.0; // Intercept
 
     as_lib::structures::Octree<Cone> octree;
 
@@ -60,6 +67,10 @@ public:
                  Point3(cfg.imu2baselink.translation()));
         Vector3 v0(0.0, 0.0, 0.0);
       
+        m = tan(x0.rotation().yaw());
+        finishLine = Point2(x0.translation().x(), x0.translation().y());
+        n = finishLine.x() - m * finishLine.y(); 
+
         imuBias::ConstantBias biasImu(
                 cfg.bias.accel,
                 cfg.bias.gyro
@@ -87,6 +98,7 @@ public:
         ISAM2Params parameters;
         parameters.relinearizeThreshold = cfg.isam.th;
         parameters.relinearizeSkip = cfg.isam.skip;
+        parameters.enableDetailedResults = true;
         solver = ISAM2(parameters);
 
 
@@ -131,11 +143,19 @@ public:
         initial.insert(V(nImu), nextX.v());
         initial.insert(B(nImu), prevB);
 
-        if(nImu > 100 && nextX.pose().equals(Pose3(Rot3(Eigen::Quaterniond(cfg.imu2baselink.linear())), 
-                                            Point3(cfg.imu2baselink.translation())), 1.)) {
+        Point3 prevPos = prevX.pose().translation();
+        Point3 currPos =  nextX.pose().translation();
+
+        // if(!loopClosed && 
+        if(!changed &&
+		    prevPos.x() - (m * prevPos.y() + n) < 0 && 
+			currPos.x() - (m * currPos.y() + n) > 0 &&
+			sqrt(pow(currPos.x() - finishLine.x(), 2) + pow(currPos.y() - finishLine.y(), 2)) < cfg.closingDist){
+
             loopClosed = true;
-                                                
-            std::cout << "Closed loop" << std::endl;
+            changed = !changed;
+        } else if(changed && nextX.v().x() > 1.0 ){
+            changed = false;
         }
 
         
@@ -175,22 +195,25 @@ public:
                 g.add(lFact);
             }
         }
-        std::cout << "Seen cones " << octree.size() << std::endl;
-        std::cout << "Added cones " << toAdd.size() << std::endl;
-
         octree.update(toAdd);
         
 
         Values result;
 
-        solver.update(g, initial);
+        
+        {
+            PROFC_NODE("SOLVER")
+            solver.update(g, initial);
+        }
         result = solver.calculateEstimate();
         
-        if(cfg.gtsam_debug)
+        if(cfg.gtsam_debug) 
             GTSAM_PRINT(result);
 
-        Matrix covX = solver.marginalCovariance(X(nImu));
+        // Matrix covX = solver.marginalCovariance(X(nImu));
         // std::cout << "Cov X" << nImu << ":\n" << covX << std::endl;
+
+        
 
         // Reset g & initial
         g.resize(0);
@@ -200,6 +223,18 @@ public:
         prevX = NavState(result.at<Pose3>(X(nImu)), result.at<Vector3>(V(nImu)));
         prevB = result.at<imuBias::ConstantBias>(B(nImu));
         state = prevX;
+
+
+        octree.clear();
+
+        for(int i = 0; i < nLidar; i++) {
+            Point3 p(result.at<Point3>(L(i)));
+            Cone cone(p.x(), p.y(), p.z(), i);
+            toAdd.push_back(cone);
+        }
+        octree.update(toAdd);
+
+
 
         // Reset the preintegration object.
         preImu.resetIntegrationAndSetBias(prevB);
@@ -211,6 +246,7 @@ public:
     Cones cones() {
         return octree.getData<Cones>();
     }
+
 
     Eigen::Isometry3d isometry() const {
         Eigen::Isometry3d I;

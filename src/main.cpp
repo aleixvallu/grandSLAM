@@ -113,15 +113,19 @@ class Manager : public rclcpp::Node {
 
                 accelAvg /= N;
                 gyroAvg /= N;
+
                 std::cout << "Accel(x: " << accelAvg.x() << " y: " << accelAvg.y() << " z: " << accelAvg.z() << ")" <<  std::endl;
                 std::cout << "GYRO(x: " << gyroAvg.x() << " y: " << gyroAvg.y() << " z: " << gyroAvg.z() << ")" << std::endl;
 
-                
-                if (cfg.cal.accel)
-                    cfg.bias.accel = accelAvg;
-
                 if (cfg.cal.gyro)
                     cfg.bias.gyro = gyroAvg;
+                
+                // if (cfg.cal.accel)
+                //     cfg.bias.accel = accelAvg;
+                if (cfg.cal.accel)
+                    cfg.bias.accel = accelAvg - (cfg.imu2baselink.rotation() * Eigen::Vector3d::UnitZ() * cfg.bias.gravity);
+                    std::cout << "Accel_cal(x: " << cfg.bias.accel.x() << " y: " << cfg.bias.accel.y() << " z: " << cfg.bias.accel.z() << ")" <<  std::endl;
+
 
                 g.init();
                 calibratedImu = true;

@@ -22,7 +22,7 @@ struct Config {
     } topics;
 
     struct {
-        double gravity;
+        float gravity;
         Eigen::Vector3d accel;
         Eigen::Vector3d gyro;
     } bias;
@@ -53,7 +53,8 @@ struct Config {
     } cal;
 
     double maxSqDist;
-    
+    double closingDist;
+
     Eigen::Isometry3d lidar2baselink;
     Eigen::Isometry3d imu2baselink;
 
