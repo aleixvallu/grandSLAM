@@ -52,6 +52,19 @@ Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
 }
 
 
+Cones fromROS(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg) {
+    
+    Config &cfg = Config::getInstance();
+    
+    Cones cones;
+    for (const auto &p : msg->cones) {
+        Cone cone(p.position_base_link.x, p.position_base_link.y, p.position_base_link.z);
+        cones.push_back(cone);
+    }
+
+    return cones;
+}
+
 
 
 
@@ -64,15 +77,28 @@ nav_msgs::msg::Odometry toROS(const Graph &state, rclcpp::Time stamp) {
     msg.header.frame_id = "global";
     msg.header.stamp = stamp;
 
+    Eigen::Isometry3d T_W_B = state.isometry() * cfg.imu2baselink.inverse();
 
-    
-    Eigen::Isometry3d T = state.isometry() * cfg.imu2baselink.inverse();
-
-    msg.pose.pose.position = tf2::toMsg(Eigen::Vector3d(T.translation()));
-    msg.pose.pose.orientation = tf2::toMsg(Eigen::Quaterniond(T.linear()));
+    msg.pose.pose.position = tf2::toMsg(Eigen::Vector3d(T_W_B.translation()));
+    msg.pose.pose.orientation = tf2::toMsg(Eigen::Quaterniond(T_W_B.linear()));
 
     // TODO: mirar com posar w
     msg.twist.twist = tf2::toMsg(state.v_w());
+
+    // LIMO
+    // auto &T_B_I = cfg.sensors.extrinsics.imu2baselink;
+    // Eigen::Matrix3d R_BI = T_B_I.linear();
+    // Eigen::Vector3d t_BI = T_B_I.translation();
+
+    // Eigen::Vector3d w_B = R_BI * (state.w - state.b_w());
+    // out.twist.twist.angular.x = w_B.x();
+    // out.twist.twist.angular.y = w_B.y();
+    // out.twist.twist.angular.z = w_B.z();
+
+    // Eigen::Vector3d v_B = R_BI * state.R().transpose() * state.v() + t_BI.cross(w_B);
+    // out.twist.twist.linear.x = v_B.x();
+    // out.twist.twist.linear.y = v_B.y();
+    // out.twist.twist.linear.z = v_B.z();
 
 
     return msg;
@@ -96,8 +122,10 @@ visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stam
         msg.markers[i].type            = visualization_msgs::msg::Marker::CYLINDER;
         msg.markers[i].action          = visualization_msgs::msg::Marker::ADD;
 
-        // pose
-        Eigen::Vector3d rCone = cfg.imu2baselink.inverse() * cones[i].toEigen();
+        // pose        
+        // Eigen::Vector3d rCone = cfg.imu2baselink * cones[i].toEigen();
+        Eigen::Vector3d rCone = cones[i].toEigen();
+
         msg.markers[i].pose.position.x = rCone.x();
         msg.markers[i].pose.position.y = rCone.y();
         msg.markers[i].pose.position.z = rCone.z();
@@ -117,6 +145,41 @@ visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stam
     return msg;
 
 }
+
+geometry_msgs::msg::TransformStamped toTF(const Eigen::Isometry3d &T, const std::string &parent,
+                                          const std::string &child, const rclcpp::Time &stamp) {
+
+    geometry_msgs::msg::TransformStamped msg;
+    msg.header.stamp = stamp;
+    msg.header.frame_id = parent;
+    msg.child_frame_id = child;
+
+    Eigen::Vector3d p = T.translation();
+    Eigen::Quaterniond q(T.linear());
+
+    msg.transform.translation.x = p.x();
+    msg.transform.translation.y = p.y();
+    msg.transform.translation.z = p.z();
+    msg.transform.rotation = tf2::toMsg(q);
+
+    return msg;
+}
+
+void publishTFs(const Graph &state, tf2_ros::TransformBroadcaster &br, const rclcpp::Time stamp) {
+
+    Config &cfg = Config::getInstance();
+
+    Eigen::Isometry3d T_B_I = cfg.imu2baselink;
+    Eigen::Isometry3d T_I_B = T_B_I.inverse();
+    Eigen::Isometry3d T_M_B = state.isometry() * T_I_B;
+    Eigen::Isometry3d T_B_L = T_B_I; // * state.L2I_isometry();
+
+    br.sendTransform(toTF(T_M_B, "global", "base_link", stamp));
+    br.sendTransform(toTF(T_B_I, "base_link", "imu_link", stamp));
+    br.sendTransform(toTF(T_B_L, "base_link", "lidar_link", stamp));
+}
+
+
 
 
 void fill_config(Config &cfg, rclcpp::Node *node) {

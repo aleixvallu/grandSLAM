@@ -9,12 +9,12 @@ def generate_launch_description():
         
     cones = Node(
         # prefix=['gnome-terminal -- gdb --args'],
-        package='conehub',
-        executable='conehub',
-        name='conehub',
+        package='conehubG',
+        executable='conehubG',
+        name='conehubG',
         output='screen',
         parameters=[os.path.join(
-        get_package_share_directory('conehub'),
+        get_package_share_directory('conehubG'),
         'config',
         'params.yaml')]
     )

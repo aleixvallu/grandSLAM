@@ -18,13 +18,16 @@ class Manager : public rclcpp::Node {
     Graph g;
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub;
-    rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr coneSub;
-    // rclcpp::Subscription<cat_msgs::msg::ConeArray>::SharedPtr coneSub;
+    // rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr coneSub;
+    rclcpp::Subscription<cat_msgs::msg::ConeArray>::SharedPtr coneSub;
 
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr statePub;
     // rclcpp::Publisher<cat_msgs::msg::ConeArray>::SharedPtr conesPub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr conesPub;
+
+    // TF Broadcaster
+    tf2_ros::TransformBroadcaster tfBr;
 
 
   public:
@@ -32,7 +35,7 @@ class Manager : public rclcpp::Node {
     Manager() : Node("g_slam",
                 rclcpp::NodeOptions().
                 allow_undeclared_parameters(true).
-                automatically_declare_parameters_from_overrides(true)) {
+                automatically_declare_parameters_from_overrides(true)), tfBr(*this) {
 
         Config &cfg = Config::getInstance();
         fill_config(cfg, this);
@@ -43,50 +46,50 @@ class Manager : public rclcpp::Node {
         );
 
         
-        coneSub = this->create_subscription<visualization_msgs::msg::MarkerArray>(
-            cfg.topics.input.cones, rclcpp::QoS(rclcpp::KeepLast(1)),
-            std::bind(&Manager::conesCallback, this, std::placeholders::_1)
-        );
-
-        // coneSub = this->create_subscription<cat_msgs::msg::ConeArray>(
+        // coneSub = this->create_subscription<visualization_msgs::msg::MarkerArray>(
         //     cfg.topics.input.cones, rclcpp::QoS(rclcpp::KeepLast(1)),
         //     std::bind(&Manager::conesCallback, this, std::placeholders::_1)
         // );
+
+        coneSub = this->create_subscription<cat_msgs::msg::ConeArray>(
+            cfg.topics.input.cones, rclcpp::QoS(rclcpp::KeepLast(1)),
+            std::bind(&Manager::conesCallback, this, std::placeholders::_1)
+        );
 
 
         statePub = this->create_publisher<nav_msgs::msg::Odometry>(cfg.topics.output.state, 10);
         // conesPub = this->create_publisher<cat_msgs::msg::ConeArray>(cfg.topics.output.cones, 10);
         conesPub = this->create_publisher<visualization_msgs::msg::MarkerArray>(cfg.topics.output.cones, 10);
 
-        auto tfBr = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-        geometry_msgs::msg::TransformStamped tfMsg;
-        tfMsg.header.stamp = this->get_clock()->now();
-        tfMsg.header.frame_id = "global";        // parent
-        tfMsg.child_frame_id = "lidar";       // child
+        // auto tfBr = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+        // geometry_msgs::msg::TransformStamped tfMsg;
+        // tfMsg.header.stamp = this->get_clock()->now();
+        // tfMsg.header.frame_id = "global";        // parent
+        // tfMsg.child_frame_id = "lidar";       // child
 
-        Eigen::Vector3d T(cfg.lidar2baselink.translation());
-        tfMsg.transform.translation.x = T.x();
-        tfMsg.transform.translation.y = T.y();
-        tfMsg.transform.translation.z = T.z();
+        // Eigen::Vector3d T(cfg.lidar2baselink.translation());
+        // tfMsg.transform.translation.x = T.x();
+        // tfMsg.transform.translation.y = T.y();
+        // tfMsg.transform.translation.z = T.z();
 
-        tfMsg.transform.rotation = tf2::toMsg(Eigen::Quaterniond(cfg.lidar2baselink.linear()));
+        // tfMsg.transform.rotation = tf2::toMsg(Eigen::Quaterniond(cfg.lidar2baselink.linear()));
 
-        tfBr->sendTransform(tfMsg);
+        // tfBr->sendTransform(tfMsg);
 
 
-        tfMsg.header.frame_id = "global";
-        tfMsg.child_frame_id = "base_link";
+        // tfMsg.header.frame_id = "global";
+        // tfMsg.child_frame_id = "base_link";
 
-        tfMsg.transform.translation.x = 0.0;
-        tfMsg.transform.translation.y = 0.0;
-        tfMsg.transform.translation.z = 0.0;
+        // tfMsg.transform.translation.x = 0.0;
+        // tfMsg.transform.translation.y = 0.0;
+        // tfMsg.transform.translation.z = 0.0;
 
-        tfMsg.transform.rotation.x = 0.0;
-        tfMsg.transform.rotation.y = 0.0;
-        tfMsg.transform.rotation.z = 0.0;
-        tfMsg.transform.rotation.w = 1.0;
+        // tfMsg.transform.rotation.x = 0.0;
+        // tfMsg.transform.rotation.y = 0.0;
+        // tfMsg.transform.rotation.z = 0.0;
+        // tfMsg.transform.rotation.w = 1.0;
 
-        tfBr->sendTransform(tfMsg);
+        // tfBr->sendTransform(tfMsg);
     }
 
 
@@ -146,9 +149,12 @@ class Manager : public rclcpp::Node {
 
         rclcpp::Time stamp = msg->header.stamp;
         statePub->publish(toROS(g, stamp));
+        publishTFs(g, tfBr, stamp);
     }
 
-    void conesCallback(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
+    // void conesCallback(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
+    void conesCallback(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg) {
+    
 
         if (not calibratedImu) 
             return;
@@ -157,7 +163,7 @@ class Manager : public rclcpp::Node {
 
         g.addCones(cones);
 
-        rclcpp::Time stamp = msg->markers[0].header.stamp;
+        rclcpp::Time stamp = msg->stamp;
         statePub->publish(toROS(g, stamp));
         conesPub->publish(toROS(g.cones(), stamp));
     }
