@@ -6,8 +6,8 @@ g_slam:
 
     topics:
       input:
-        # imu: "/ouster/imu"
-        imu: "/os1_cloud_node/imu"
+        imu: "/ouster/imu"
+        # imu: "/os1_cloud_node/imu"
         cones: "/as/p/observations"
       output:
         state: "/as/slam/state"
@@ -15,13 +15,13 @@ g_slam:
 
     # OUSTER2
     # RUN-0 2024-12-15 --> time: 0.25
-    # imu2baselink:
-    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
-    #   R: [0., 0., 0.]  # roll, pitch, yaw [deg]
+    imu2baselink:
+      t: [0., 0., 0.98]  # (x, y, z) [meters]
+      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
-    # lidar2baselink:
-    #   t: [0., 0., 0.98] # (x, y, z) [meters]
-    #   R: [0., 0., 0.] # roll, pitch, yaw [deg]
+    lidar2baselink:
+      t: [0., 0., 0.98] # (x, y, z) [meters]
+      R: [0., 0., 0.] # roll, pitch, yaw [deg]
 
 
     # # RUN-14 2024-10-11 --> time: 10.
@@ -54,14 +54,14 @@ g_slam:
     #   t: [0., 0., 0.98] # (x, y, z) [meters]
     #   R: [1., -3., 0.] # roll, pitch, yaw [deg]
 
-    # # TU-FAST
-    imu2baselink:
-      t: [0., 0., 0.98]  # (x, y, z) [meters]
-      R: [-1., -5.5, 0.]  # roll, pitch, yaw [deg]
+    # # # TU-FAST
+    # imu2baselink:
+    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
+    #   R: [-1., -5.5, 0.]  # roll, pitch, yaw [deg]
 
-    lidar2baselink:
-      t: [0., 0., 0.98] # (x, y, z) [meters]
-      R: [-1., -5.5, 0.] # roll, pitch, yaw [deg]
+    # lidar2baselink:
+    #   t: [0., 0., 0.98] # (x, y, z) [meters]
+    #   R: [-1., -5.5, 0.] # roll, pitch, yaw [deg]
 
 
 
@@ -84,12 +84,12 @@ g_slam:
       accel: 1.53e-2        # [m^2]
       biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
       biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
-      process: 0.01
+      process: 0.1
       
       initial: 
-        pose: 0.01            # [m] 
+        pose: 0.1            # [m] 
         velocity: 0.1         # [m/s] 
-        lidar: 0.01          # [m]
+        lidar: 0.1          # [m]
         bias: 0.01 
         
 
@@ -97,9 +97,10 @@ g_slam:
 
     ISAM: 
       skip:       1
-      threshold:  0.1
+      threshold:  0.01
+      PartReliCheck: false
 
     calibration:
-      time: 1.0
+      time: 1.
       accel: true
       gyro: true

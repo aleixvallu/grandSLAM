@@ -96,9 +96,44 @@ public:
 
         // ISAM2
         ISAM2Params parameters;
-        parameters.relinearizeThreshold = cfg.isam.th;
+        parameters.optimizationParams;
+        
+        
+        
+        FastMap<char, Vector> thresholds;
+
+        thresholds['x'] =
+            (Vector(6) <<
+                0.01, 0.01, 0.01,
+                0.005, 0.005, 0.005).finished();
+
+        thresholds['v'] =
+            (Vector(3) <<
+                0.05, 0.05, 0.05).finished();
+
+        thresholds['b'] =
+            (Vector(6) <<
+                1e-3, 1e-3, 1e-3,
+                1e-4, 1e-4, 1e-4).finished();
+
+        thresholds['l'] =
+            (Vector(3) <<
+                1000., 1000., 1000.).finished();
+
+        parameters.relinearizeThreshold = thresholds;
+        // parameters.relinearizeThreshold = cfg.isam.th;
+        
+        
         parameters.relinearizeSkip = cfg.isam.skip;
-        parameters.enableDetailedResults = true;
+        // parameters.enableRelinearization;
+        // parameters.evaluateNonlinearError
+        // parameters.factorization:
+        // parameters.cacheLinearizedFactors;
+        // cacheLinearizedFactors;
+        parameters.enableDetailedResults = cfg.gtsam_debug;
+        parameters.enablePartialRelinearizationCheck = cfg.isam.relCheck;
+        // parameters.findUnusedFactorSlots;
+
         solver = ISAM2(parameters);
 
 
@@ -130,7 +165,7 @@ public:
         
     }
 
-
+    // TODO: no afegir sempre que veig un factor, afegirlo cada cert temps/distancia, aixi no tens tants facotrs 
     void addCones(const Cones &cones) {
         PROFC_NODE("GTSAM")
         Config &cfg = Config::getInstance();
@@ -154,6 +189,7 @@ public:
 
             loopClosed = true;
             changed = !changed;
+            std::cout << "Loop closed" << std::endl;
         } else if(changed && nextX.v().x() > 1.0 ){
             changed = false;
         }
@@ -203,7 +239,9 @@ public:
         
         {
             PROFC_NODE("SOLVER")
-            solver.update(g, initial);
+            auto metrics = solver.update(g, initial);
+            std::cout << "Relinarize: " <<  metrics.variablesRelinearized << std::endl;
+            std::cout << "Reeliminated: " << metrics.variablesReeliminated << std::endl;
         }
         result = solver.calculateEstimate();
         

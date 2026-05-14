@@ -30,27 +30,6 @@ Imu fromROS(const sensor_msgs::msg::Imu::ConstSharedPtr &msg) {
     return imu;
 }
 
-Cones fromROS(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
-    
-    Config &cfg = Config::getInstance();
-    
-    // TODO: Tornar a afegir el priemr punt del msg (ara serveix per fer el delete markers)
-
-    Cones cones;
-    bool first = true;
-    for (const auto &p : msg->markers) {
-        if (first) { 
-            first = false; 
-            continue; 
-        }
-
-        Cone cone(p.pose.position.x, p.pose.position.y, p.pose.position.z);
-        cones.push_back(cone);
-    }
-
-    return cones;
-}
-
 
 Cones fromROS(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg) {
     
@@ -218,6 +197,7 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
 
     node->get_parameter("ISAM.skip", cfg.isam.skip);
     node->get_parameter("ISAM.threshold", cfg.isam.th);
+    node->get_parameter("ISAM.PartReliCheck", cfg.isam.relCheck);
 
     node->get_parameter("calibration.time", cfg.cal.time);
     node->get_parameter("calibration.accel", cfg.cal.accel);
