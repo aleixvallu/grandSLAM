@@ -8,10 +8,21 @@ g_slam:
       input:
         imu: "/ouster/imu"
         # imu: "/os1_cloud_node/imu"
+        
+        lidar: "/ouster/points"
+        # lidar: "/os1_cloud_node/points"
+
         cones: "/as/p/observations"
       output:
         state: "/as/slam/state"
         cones: "/as/p/cones"
+
+
+    calibration:
+      time: 0.
+      accel: false
+      gyro: false
+
 
     # OUSTER2
     # RUN-0 2024-12-15 --> time: 0.25
@@ -73,8 +84,10 @@ g_slam:
 
 
     # maxSqDist: 0.062  # 
-    # maxSqDist: 0.09   # 0.3 m
-    maxSqDist: 0.25     # 0.5 m
+    maxSqDist: 0.09   # 0.3 m
+    # maxSqDist: 0.16     # 0.4 m
+    # maxSqDist: 0.25     # 0.5 m
+    # maxSqDist: 0.3     # 0. m
 
     
     closingDist: 2.0
@@ -84,23 +97,15 @@ g_slam:
       accel: 1.53e-2        # [m^2]
       biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
       biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
-      process: 0.1
+      process: 1e-4
       
       initial: 
         pose: 0.1            # [m] 
         velocity: 0.1         # [m/s] 
         lidar: 0.1          # [m]
-        bias: 0.01 
+        bias: 0.001 
         
-
-
-
     ISAM: 
       skip:       1
       threshold:  0.01
-      PartReliCheck: false
-
-    calibration:
-      time: 1.
-      accel: true
-      gyro: true
+      lag: 45.

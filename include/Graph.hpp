@@ -10,6 +10,9 @@
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
+#include <gtsam/nonlinear/IncrementalFixedLagSmoother.h>
+
+
 #include <as_lib/structures/iOctree.hpp>
 
 #include "Objects.hpp"
@@ -35,10 +38,16 @@ class Graph {
 
     Values initial;
 
-    ISAM2 solver;
+    // ISAM2 solver;
+
+    IncrementalFixedLagSmoother solver;
+    FixedLagSmoother::KeyTimestampMap timestamps;
+
 
     PreintegratedCombinedMeasurements preImu;
 
+
+    
     NavState prevX;
     NavState state;
     imuBias::ConstantBias prevB;
@@ -58,7 +67,7 @@ public:
 
     Graph() {}
 
-    void init(){
+    void init(double time){
 
         Config &cfg = Config::getInstance();
 
@@ -80,6 +89,10 @@ public:
         initial.insert(V(nImu), v0);
         initial.insert(B(nImu), biasImu);
 
+        timestamps[X(nImu)] = time;
+        timestamps[V(nImu)] = time;
+        timestamps[B(nImu)] = time;
+
         // Noise
         auto poseNoise = noiseModel::Isotropic::Sigma(6, cfg.cov.initial.pose);  // rad, rad, rad, m, m, m  
         auto velNoise = noiseModel::Isotropic::Sigma(3, cfg.cov.initial.vel);           // m/s
@@ -95,10 +108,7 @@ public:
 
 
         // ISAM2
-        ISAM2Params parameters;
-        parameters.optimizationParams;
-        
-        
+        ISAM2Params parameters;      
         
         FastMap<char, Vector> thresholds;
 
@@ -118,23 +128,16 @@ public:
 
         thresholds['l'] =
             (Vector(3) <<
-                1000., 1000., 1000.).finished();
+                0.5, 0.5, 1.).finished();
 
         parameters.relinearizeThreshold = thresholds;
         // parameters.relinearizeThreshold = cfg.isam.th;
         
-        
         parameters.relinearizeSkip = cfg.isam.skip;
-        // parameters.enableRelinearization;
-        // parameters.evaluateNonlinearError
-        // parameters.factorization:
-        // parameters.cacheLinearizedFactors;
-        // cacheLinearizedFactors;
         parameters.enableDetailedResults = cfg.gtsam_debug;
-        parameters.enablePartialRelinearizationCheck = cfg.isam.relCheck;
-        // parameters.findUnusedFactorSlots;
 
-        solver = ISAM2(parameters);
+        solver = IncrementalFixedLagSmoother(cfg.isam.lag, parameters);
+        // solver = ISAM2(parameters);
 
 
         // Imu cov 
@@ -148,7 +151,6 @@ public:
         params->setUse2ndOrderCoriolis(false);
         params->setOmegaCoriolis(Vector3(0, 0, 0));
         preImu = PreintegratedCombinedMeasurements(params, biasImu);
-
 
         lidarNoise = noiseModel::Isotropic::Sigma(3, cfg.cov.initial.lidar);
 
@@ -166,33 +168,44 @@ public:
     }
 
     // TODO: no afegir sempre que veig un factor, afegirlo cada cert temps/distancia, aixi no tens tants facotrs 
-    void addCones(const Cones &cones) {
+    void addCones(const Cones &cones, double time) {
         PROFC_NODE("GTSAM")
         Config &cfg = Config::getInstance();
 
-        nImu++;
+        // Guard: don't add an IMU factor with zero integration time
+        if (preImu.deltaTij() <= 0.0) {
+            RCLCPP_WARN(rclcpp::get_logger("graph"), 
+                "Skipping cone update: preImu deltaTij=0 (no IMU received since last cone callback)");
+            return;
+        }
 
+
+        nImu++;
 
         NavState nextX = preImu.predict(prevX, prevB);
         initial.insert(X(nImu), nextX.pose());
         initial.insert(V(nImu), nextX.v());
         initial.insert(B(nImu), prevB);
 
+        timestamps[X(nImu)] = time;
+        timestamps[V(nImu)] = time;
+        timestamps[B(nImu)] = time;
+
         Point3 prevPos = prevX.pose().translation();
         Point3 currPos =  nextX.pose().translation();
 
         // if(!loopClosed && 
-        if(!changed &&
-		    prevPos.x() - (m * prevPos.y() + n) < 0 && 
-			currPos.x() - (m * currPos.y() + n) > 0 &&
-			sqrt(pow(currPos.x() - finishLine.x(), 2) + pow(currPos.y() - finishLine.y(), 2)) < cfg.closingDist){
+        // if(!changed &&
+		//     prevPos.x() - (m * prevPos.y() + n) < 0 && 
+		// 	currPos.x() - (m * currPos.y() + n) > 0 &&
+		// 	sqrt(pow(currPos.x() - finishLine.x(), 2) + pow(currPos.y() - finishLine.y(), 2)) < cfg.closingDist){
 
-            loopClosed = true;
-            changed = !changed;
-            std::cout << "Loop closed" << std::endl;
-        } else if(changed && nextX.v().x() > 1.0 ){
-            changed = false;
-        }
+        //     loopClosed = true;
+        //     changed = !changed;
+        //     std::cout << "Loop closed" << std::endl;
+        // } else if(changed && nextX.v().x() > 1.0 ){
+        //     changed = false;
+        // }
 
         
         CombinedImuFactor iFact(X(nImu - 1), V(nImu - 1), X(nImu), V(nImu), B(nImu -1), B(nImu), preImu);
@@ -201,7 +214,7 @@ public:
 
         int N = cones.size();
 
-        Cones toAdd;
+        // Cones toAdd;
         Pose3 actualPose = nextX.pose();
         for(int i = 0; i < N; i++) { 
 
@@ -222,40 +235,74 @@ public:
 
                 
                 initial.insert(L(nLidar), worldCone);
+                timestamps[L(nLidar)] = time;
+
                 
-                toAdd.push_back(p);
+                // toAdd.push_back(p);
                 nLidar++;
             } else {
                 int nIdx = neighbors[0].idx;
                 LandmarkFactor lFact(X(nImu), L(nIdx), c.toEigen(), lidarNoise);
+                timestamps[L(nIdx)] = time;
                 g.add(lFact);
             }
         }
-        octree.update(toAdd);
+        // octree.update(toAdd);
         
 
         Values result;
 
-        
+        try
         {
-            PROFC_NODE("SOLVER")
-            auto metrics = solver.update(g, initial);
-            std::cout << "Relinarize: " <<  metrics.variablesRelinearized << std::endl;
-            std::cout << "Reeliminated: " << metrics.variablesReeliminated << std::endl;
+            {
+                PROFC_NODE("SOLVER")
+                solver.update(g, initial, timestamps);
+            }
+            {
+                PROFC_NODE("ESTIMATE")
+                result = solver.calculateEstimate();
+                // result = solver.calculateBestEstimate();
+            }
+        } catch (const gtsam::IndeterminantLinearSystemException &e) {
+            std::cerr << "GTSAM IndeterminantLinearSystem: " << e.what() << std::endl;
+            std::cerr << "Offending key: " << gtsam::DefaultKeyFormatter(e.nearbyVariable()) << std::endl;
+            
+            // Print the full factor graph to see what's connected to it
+            std::cerr << "Factor graph size: " << g.size() << std::endl;
+            std::cerr << "nImu: " << nImu << " nLidar: " << nLidar << std::endl;
+            
+            // Print which factors involve this key
+            for (size_t i = 0; i < g.size(); i++) {
+                auto factor = g[i];
+                if (!factor) continue;
+                for (auto key : factor->keys()) {
+                    if (key == e.nearbyVariable()) {
+                        std::cerr << "Factor " << i << " involves offending variable" << std::endl;
+                        factor->print();
+                    }
+                }
+            }
+            return; // or handle gracefully
         }
-        result = solver.calculateEstimate();
         
         if(cfg.gtsam_debug) 
             GTSAM_PRINT(result);
-
-        // Matrix covX = solver.marginalCovariance(X(nImu));
-        // std::cout << "Cov X" << nImu << ":\n" << covX << std::endl;
 
         
 
         // Reset g & initial
         g.resize(0);
         initial.clear();
+        // timestamps.clear();
+
+        // Solo borrar poses — landmarks persisten
+        for (auto it = timestamps.begin(); it != timestamps.end(); ) {
+            char sym = Symbol(it->first).chr();
+            if (sym == 'x' || sym == 'v' || sym == 'b')
+                it = timestamps.erase(it);
+            else
+                ++it;  // landmarks: mantener
+        }
 
         // Overwrite the beginning of the preintegration for the next step.
         prevX = NavState(result.at<Pose3>(X(nImu)), result.at<Vector3>(V(nImu)));
@@ -264,15 +311,15 @@ public:
 
 
         octree.clear();
-
+        Cones toAdd;
         for(int i = 0; i < nLidar; i++) {
-            Point3 p(result.at<Point3>(L(i)));
-            Cone cone(p.x(), p.y(), p.z(), i);
-            toAdd.push_back(cone);
+            if (result.exists(L(i))) {
+                Point3 p(result.at<Point3>(L(i)));
+                Cone cone(p.x(), p.y(), p.z(), i);
+                toAdd.push_back(cone);
+            }
         }
         octree.update(toAdd);
-
-
 
         // Reset the preintegration object.
         preImu.resetIntegrationAndSetBias(prevB);

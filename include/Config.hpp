@@ -43,8 +43,8 @@ struct Config {
 
     struct{
         int skip;
-        bool relCheck;
         double th;
+        double lag;
     } isam;
 
     struct{

@@ -61,30 +61,32 @@ nav_msgs::msg::Odometry toROS(const Graph &state, rclcpp::Time stamp) {
     msg.pose.pose.position = tf2::toMsg(Eigen::Vector3d(T_W_B.translation()));
     msg.pose.pose.orientation = tf2::toMsg(Eigen::Quaterniond(T_W_B.linear()));
 
+    // msg.twist.twist = tf2::toMsg(state.v_w());
     // TODO: mirar com posar w
-    msg.twist.twist = tf2::toMsg(state.v_w());
 
     // LIMO
-    // auto &T_B_I = cfg.sensors.extrinsics.imu2baselink;
-    // Eigen::Matrix3d R_BI = T_B_I.linear();
-    // Eigen::Vector3d t_BI = T_B_I.translation();
+    auto &T_B_I = cfg.imu2baselink;
+    Eigen::Matrix3d R_BI = T_B_I.linear();
+    Eigen::Vector3d t_BI = T_B_I.translation();
 
-    // Eigen::Vector3d w_B = R_BI * (state.w - state.b_w());
-    // out.twist.twist.angular.x = w_B.x();
-    // out.twist.twist.angular.y = w_B.y();
-    // out.twist.twist.angular.z = w_B.z();
 
-    // Eigen::Vector3d v_B = R_BI * state.R().transpose() * state.v() + t_BI.cross(w_B);
-    // out.twist.twist.linear.x = v_B.x();
-    // out.twist.twist.linear.y = v_B.y();
-    // out.twist.twist.linear.z = v_B.z();
+    auto V_W = state.v_w();
+    Eigen::Vector3d w_B = R_BI * V_W.tail<3>();
+    msg.twist.twist.angular.x = w_B.x();
+    msg.twist.twist.angular.y = w_B.y();
+    msg.twist.twist.angular.z = w_B.z();
+
+    Eigen::Vector3d v_B = R_BI * state.R().toRotationMatrix().transpose() * V_W.head<3>() + t_BI.cross(w_B);
+    msg.twist.twist.linear.x = v_B.x();
+    msg.twist.twist.linear.y = v_B.y();
+    msg.twist.twist.linear.z = v_B.z();
 
 
     return msg;
 }
 
 
-visualization_msgs::msg::MarkerArray toROS(const Cones &cones, rclcpp::Time stamp) {
+visualization_msgs::msg::MarkerArray toROS(const Cones &cones, const rclcpp::Time &stamp) {
     Config &cfg = Config::getInstance();
     
     visualization_msgs::msg::MarkerArray msg;
@@ -197,7 +199,7 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
 
     node->get_parameter("ISAM.skip", cfg.isam.skip);
     node->get_parameter("ISAM.threshold", cfg.isam.th);
-    node->get_parameter("ISAM.PartReliCheck", cfg.isam.relCheck);
+    node->get_parameter("ISAM.lag", cfg.isam.lag);
 
     node->get_parameter("calibration.time", cfg.cal.time);
     node->get_parameter("calibration.accel", cfg.cal.accel);

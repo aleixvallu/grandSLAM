@@ -93,7 +93,7 @@ class Manager : public rclcpp::Node {
                     std::cout << "Accel_cal(x: " << cfg.bias.accel.x() << " y: " << cfg.bias.accel.y() << " z: " << cfg.bias.accel.z() << ")" <<  std::endl;
 
 
-                g.init();
+                g.init(imu.stamp);
                 calibratedImu = true;
             }
             prevImu = imu;
@@ -101,7 +101,7 @@ class Manager : public rclcpp::Node {
         }
 
         double dt = imu.stamp - prevImu.stamp;
-        if(dt < 0. ||   dt >= imu.stamp) {
+        if(dt < 0. ) { //|| dt >= imu.stamp) {
             RCLCPP_ERROR(this->get_logger(), "WRONG IMU, DT < 0");
             return;
         }
@@ -117,14 +117,15 @@ class Manager : public rclcpp::Node {
 
     // void conesCallback(const visualization_msgs::msg::MarkerArray::ConstSharedPtr &msg) {
     void conesCallback(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg) {
-    
+        
 
         if (not calibratedImu) 
             return;
 
         Cones cones = fromROS(msg);
 
-        g.addCones(cones);
+        // g.addCones(cones);
+        g.addCones(cones, rclcpp::Time(msg->stamp).seconds());
 
         rclcpp::Time stamp = msg->stamp;
         statePub->publish(toROS(g, stamp));
@@ -142,6 +143,9 @@ int main(int argc, char **argv) {
     PROFC_INSTALL(node);
     
     rclcpp::spin(node);
+    // rclcpp::executors::MultiThreadedExecutor executor;
+    // executor.add_node(manager);
+    // executor.spin();
 
     rclcpp::shutdown();
     return 0;
