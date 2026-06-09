@@ -197,9 +197,13 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
     node->get_parameter("covariance.initial.bias", cfg.cov.initial.bias);
 
 
-    node->get_parameter("ISAM.skip", cfg.isam.skip);
-    node->get_parameter("ISAM.threshold", cfg.isam.th);
-    node->get_parameter("ISAM.lag", cfg.isam.lag);
+    node->get_parameter("ISAM.skip",      cfg.isam.skip);
+    node->get_parameter("ISAM.lag",       cfg.isam.lag);
+
+    node->get_parameter("ISAM.relinearizeThreshold.pose",     cfg.isam.threshold.pose);
+    node->get_parameter("ISAM.relinearizeThreshold.vel",      cfg.isam.threshold.vel);
+    node->get_parameter("ISAM.relinearizeThreshold.bias",     cfg.isam.threshold.bias);
+    node->get_parameter("ISAM.relinearizeThreshold.landmark", cfg.isam.threshold.landmark);
 
     node->get_parameter("calibration.time", cfg.cal.time);
     node->get_parameter("calibration.accel", cfg.cal.accel);

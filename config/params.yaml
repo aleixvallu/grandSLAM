@@ -19,9 +19,9 @@ g_slam:
 
 
     calibration:
-      time: 0.
-      accel: false
-      gyro: false
+      time: 0.25
+      accel: true
+      gyro: true
 
 
     # OUSTER2
@@ -84,12 +84,11 @@ g_slam:
 
 
     # maxSqDist: 0.062  # 
-    maxSqDist: 0.09   # 0.3 m
+    # maxSqDist: 0.09   # 0.3 m
     # maxSqDist: 0.16     # 0.4 m
-    # maxSqDist: 0.25     # 0.5 m
+    maxSqDist: 0.25     # 0.5 m
     # maxSqDist: 0.3     # 0. m
 
-    
     closingDist: 2.0
 
     covariance:
@@ -105,7 +104,15 @@ g_slam:
         lidar: 0.1          # [m]
         bias: 0.001 
         
-    ISAM: 
-      skip:       1
-      threshold:  0.01
-      lag: 45.
+    ISAM:
+      skip: 1
+      lag: 40.          # First lap lag [s] 
+      lagMargin: 5.0    # Margin [s] 
+                        # if (lagMargin < 0) lag always used
+                        
+      
+      relinearizeThreshold:
+        pose:  [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]   # [rot_x, rot_y, rot_z, t_x, t_y, t_z]
+        vel:   [0.1, 0.1, 0.1]                        # [vx, vy, vz]
+        bias:  [1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]   # [ax, ay, az, gx, gy, gz]
+        landmark: [0.3, 0.3, 0.3]                     # [x, y, z]

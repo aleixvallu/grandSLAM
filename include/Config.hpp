@@ -41,10 +41,15 @@ struct Config {
         } initial;
     } cov;
 
-    struct{
+    struct {
         int skip;
-        double th;
         double lag;
+        struct {
+            std::vector<double> pose;
+            std::vector<double> vel;
+            std::vector<double> bias;
+            std::vector<double> landmark;
+        } threshold;
     } isam;
 
     struct{
