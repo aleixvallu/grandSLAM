@@ -30,7 +30,9 @@ def generate_launch_description():
         parameters=[os.path.join(
         get_package_share_directory('g_slam'),
         'config',
-        'params.yaml')]
+        # 'params.yaml'
+        'cat18x.yaml'
+        )]
     )
 
     

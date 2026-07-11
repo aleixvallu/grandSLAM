@@ -122,7 +122,7 @@ class Manager : public rclcpp::Node {
         if (not calibratedImu) 
             return;
 
-        Cones cones = fromROS(msg);
+        Cones cones = fromROS(msg, g.L2I_isometry());
 
         // g.addCones(cones);
         g.addCones(cones, rclcpp::Time(msg->stamp).seconds());

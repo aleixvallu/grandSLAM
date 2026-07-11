@@ -6,11 +6,11 @@ g_slam:
 
     topics:
       input:
-        imu: "/ouster/imu"
-        # imu: "/os1_cloud_node/imu"
+        # imu: "/ouster/imu"
+        imu: "/os1_cloud_node/imu"
         
-        lidar: "/ouster/points"
-        # lidar: "/os1_cloud_node/points"
+        # lidar: "/ouster/points"
+        lidar: "/os1_cloud_node/points"
 
         cones: "/as/p/observations"
       output:
@@ -19,20 +19,20 @@ g_slam:
 
 
     calibration:
-      time: 0.25
+      time: 5.
       accel: true
       gyro: true
 
 
     # OUSTER2
     # RUN-0 2024-12-15 --> time: 0.25
-    imu2baselink:
-      t: [0., 0., 0.98]  # (x, y, z) [meters]
-      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
+    # imu2baselink:
+    #   t: [0., 0., 0.]  # (x, y, z) [meters]
+    #   R: [0., 0., 0.]  # roll, pitch, yaw [deg]
 
-    lidar2baselink:
-      t: [0., 0., 0.98] # (x, y, z) [meters]
-      R: [0., 0., 0.] # roll, pitch, yaw [deg]
+    # lidar2baselink:
+    #   t: [0., 0., 0.] # (x, y, z) [meters]
+    #   R: [0., 0., 0.] # roll, pitch, yaw [deg]
 
 
     # # RUN-14 2024-10-11 --> time: 10.
@@ -66,13 +66,13 @@ g_slam:
     #   R: [1., -3., 0.] # roll, pitch, yaw [deg]
 
     # # # TU-FAST
-    # imu2baselink:
-    #   t: [0., 0., 0.98]  # (x, y, z) [meters]
-    #   R: [-1., -5.5, 0.]  # roll, pitch, yaw [deg]
+    imu2baselink:
+      t: [0., 0., 0.98]  # (x, y, z) [meters]
+      R: [-1., -5.5, 0.]  # roll, pitch, yaw [deg]
 
-    # lidar2baselink:
-    #   t: [0., 0., 0.98] # (x, y, z) [meters]
-    #   R: [-1., -5.5, 0.] # roll, pitch, yaw [deg]
+    lidar2baselink:
+      t: [0., 0., 0.98] # (x, y, z) [meters]
+      R: [-1., -5.5, 0.] # roll, pitch, yaw [deg]
 
 
 
@@ -83,11 +83,9 @@ g_slam:
       gravity: 9.80665
 
 
-    # maxSqDist: 0.062  # 
-    # maxSqDist: 0.09   # 0.3 m
-    # maxSqDist: 0.16     # 0.4 m
-    maxSqDist: 0.25     # 0.5 m
-    # maxSqDist: 0.3     # 0. m
+    # asociationDist: 0.3 # [m]
+    # asociationDist: 0.4 # [m]
+    asociationDist: 0.5 # [m]
 
     closingDist: 2.0
 
@@ -105,10 +103,8 @@ g_slam:
         bias: 0.001 
         
     ISAM:
-      skip: 1
-      lag: 40.          # First lap lag [s] 
-      lagMargin: 5.0    # Margin [s] 
-                        # if (lagMargin < 0) lag always used
+      skip: 5
+      lag: 45.          # First lap lag [s] 
                         
       
       relinearizeThreshold:

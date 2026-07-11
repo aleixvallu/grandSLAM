@@ -1,0 +1,79 @@
+g_slam:
+  ros__parameters:
+
+    gtsam_debug: false
+
+
+    topics:
+      input:
+        # imu: "/ouster/imu"
+        imu: "/vectornav/imu"
+        # imu: "/os1_cloud_node/imu"
+        
+        lidar: "/ouster/points"
+        # lidar: "/os1_cloud_node/points"
+
+        cones: "/as/p/observations"
+      output:
+        state: "/as/slam/state"
+        cones: "/as/p/cones"
+
+
+    calibration:
+      time: 3.
+      accel: true
+      gyro: true
+
+
+    imu2baselink:
+      t: [0., 0., 0.]  # (x, y, z) [meters]
+      R: [0., 0., 0.]  # roll, pitch, yaw [deg]
+
+    lidar2baselink:
+      t: [-.54, 0., 0.96] # (x, y, z) [meters]
+      R: [0., -8., 180.] # roll, pitch, yaw [deg]
+      # R: [0., -8.5, 180.] # roll, pitch, yaw [deg]
+      # R: [0., -9., 180.] # roll, pitch, yaw [deg]
+
+
+
+    bias:
+      accel: [0.0001, 0.0001, 0.0001]  # [m/s^2]
+      gyro:  [0.0001, 0.0001, 0.0001]  # [rad/s]
+      # gravity: 0.
+      gravity: 9.80665
+
+
+    # asociationDist: 0.3 # [m]
+    # asociationDist: 0.4 # [m]
+    asociationDist: 0.5 # [m]
+
+    closingDist: 2.0
+
+    covariance:
+      # gyro: 6.80e-5        # [rad/s^2]
+      # accel: 1.38e-3      # [m^2]
+      # bias_gyro: 5.16e-6   # [rad^2/s^2 * sqrt(s)]
+      # bias_accel: 8.93e-5  # [m/s * sqrt(s)]
+      gyro: 6.01e-4          # [rad/s^2]
+      accel: 1.53e-2        # [m^2]
+      biasGyro: 1.54e-5     # [rad^2/s^2 * sqrt(s)]  # alan noise
+      biasAccel: 3.38e-4    # [m/s * sqrt(s)]        # alan noise
+      process: 1e-4
+      
+      initial: 
+        pose: 0.01            # [m] 
+        velocity: 0.1         # [m/s] 
+        lidar: 0.1          # [m]
+        bias: 0.001 
+        
+    ISAM:
+      skip: 1
+      lag: 45.          # First lap lag [s] 
+                        
+      
+      relinearizeThreshold:
+        pose:  [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]   # [rot_x, rot_y, rot_z, t_x, t_y, t_z]
+        vel:   [0.1, 0.1, 0.1]                        # [vx, vy, vz]
+        bias:  [1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]   # [ax, ay, az, gx, gy, gz]
+        landmark: [0.3, 0.3, 0.3]                     # [x, y, z]

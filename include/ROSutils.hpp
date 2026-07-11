@@ -31,13 +31,14 @@ Imu fromROS(const sensor_msgs::msg::Imu::ConstSharedPtr &msg) {
 }
 
 
-Cones fromROS(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg) {
+Cones fromROS(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg, const Eigen::Isometry3d &lidar2imu) {
     
     Config &cfg = Config::getInstance();
     
     Cones cones;
     for (const auto &p : msg->cones) {
-        Cone cone(p.position_base_link.x, p.position_base_link.y, p.position_base_link.z);
+        Cone cone(p.position_base_link.x, p.position_base_link.y,  p.position_base_link.z);
+        cone = lidar2imu * cone;
         cones.push_back(cone);
     }
 
@@ -153,7 +154,7 @@ void publishTFs(const Graph &state, tf2_ros::TransformBroadcaster &br, const rcl
     Eigen::Isometry3d T_B_I = cfg.imu2baselink;
     Eigen::Isometry3d T_I_B = T_B_I.inverse();
     Eigen::Isometry3d T_M_B = state.isometry() * T_I_B;
-    Eigen::Isometry3d T_B_L = T_B_I; // * state.L2I_isometry();
+    Eigen::Isometry3d T_B_L = T_B_I * state.L2I_isometry();
 
     br.sendTransform(toTF(T_M_B, "global", "base_link", stamp));
     br.sendTransform(toTF(T_B_I, "base_link", "imu_link", stamp));
@@ -165,54 +166,67 @@ void publishTFs(const Graph &state, tf2_ros::TransformBroadcaster &br, const rcl
 
 void fill_config(Config &cfg, rclcpp::Node *node) {
 
-    node->get_parameter("gtsam_debug", cfg.gtsam_debug);
+
+    std::vector<std::string> missing;
+
+    auto load_param = [&](const std::string &name, auto &dest) {
+        if (!node->get_parameter(name, dest)) {
+            missing.push_back(name);
+        }
+    };
+
+
+
+    load_param("gtsam_debug", cfg.gtsam_debug);
     
 
-    node->get_parameter("topics.input.imu", cfg.topics.input.imu);
-    node->get_parameter("topics.input.cones", cfg.topics.input.cones);
-    node->get_parameter("topics.output.state", cfg.topics.output.state);
-    node->get_parameter("topics.output.cones", cfg.topics.output.cones);
+    load_param("topics.input.imu", cfg.topics.input.imu);
+    load_param("topics.input.cones", cfg.topics.input.cones);
+    load_param("topics.output.state", cfg.topics.output.state);
+    load_param("topics.output.cones", cfg.topics.output.cones);
 
     std::vector<double> bA, bG;
-    node->get_parameter("bias.accel", bA);
-    node->get_parameter("bias.gyro", bG);
+    load_param("bias.accel", bA);
+    load_param("bias.gyro", bG);
     cfg.bias.accel = Eigen::Vector3d(bA[0], bA[1], bA[2]);
     cfg.bias.gyro = Eigen::Vector3d(bG[0], bG[1], bG[2]);
     
-    node->get_parameter("bias.gravity", cfg.bias.gravity);
+    load_param("bias.gravity", cfg.bias.gravity);
 
-    node->get_parameter("maxSqDist", cfg.maxSqDist);
-    node->get_parameter("closingDist", cfg.closingDist);
-
-
-    node->get_parameter("covariance.gyro", cfg.cov.gyro);
-    node->get_parameter("covariance.accel", cfg.cov.accel);
-    node->get_parameter("covariance.biasGyro", cfg.cov.biasG);
-    node->get_parameter("covariance.biasAccel", cfg.cov.biasA);
-    node->get_parameter("covariance.process", cfg.cov.process);
-
-    node->get_parameter("covariance.initial.pose", cfg.cov.initial.pose);
-    node->get_parameter("covariance.initial.lidar", cfg.cov.initial.lidar); 
-    node->get_parameter("covariance.initial.velocity", cfg.cov.initial.vel);
-    node->get_parameter("covariance.initial.bias", cfg.cov.initial.bias);
+    double dist;
+    load_param("asociationDist", dist);
+    cfg.maxSqDist = dist * dist;
+    load_param("closingDist", cfg.closingDist);
 
 
-    node->get_parameter("ISAM.skip",      cfg.isam.skip);
-    node->get_parameter("ISAM.lag",       cfg.isam.lag);
+    load_param("covariance.gyro", cfg.cov.gyro);
+    load_param("covariance.accel", cfg.cov.accel);
+    load_param("covariance.biasGyro", cfg.cov.biasG);
+    load_param("covariance.biasAccel", cfg.cov.biasA);
+    load_param("covariance.process", cfg.cov.process);
 
-    node->get_parameter("ISAM.relinearizeThreshold.pose",     cfg.isam.threshold.pose);
-    node->get_parameter("ISAM.relinearizeThreshold.vel",      cfg.isam.threshold.vel);
-    node->get_parameter("ISAM.relinearizeThreshold.bias",     cfg.isam.threshold.bias);
-    node->get_parameter("ISAM.relinearizeThreshold.landmark", cfg.isam.threshold.landmark);
+    load_param("covariance.initial.pose", cfg.cov.initial.pose);
+    load_param("covariance.initial.lidar", cfg.cov.initial.lidar); 
+    load_param("covariance.initial.velocity", cfg.cov.initial.vel);
+    load_param("covariance.initial.bias", cfg.cov.initial.bias);
 
-    node->get_parameter("calibration.time", cfg.cal.time);
-    node->get_parameter("calibration.accel", cfg.cal.accel);
-    node->get_parameter("calibration.gyro", cfg.cal.gyro);
+
+    load_param("ISAM.skip",      cfg.isam.skip);
+    load_param("ISAM.lag",       cfg.isam.lag);
+
+    load_param("ISAM.relinearizeThreshold.pose",     cfg.isam.threshold.pose);
+    load_param("ISAM.relinearizeThreshold.vel",      cfg.isam.threshold.vel);
+    load_param("ISAM.relinearizeThreshold.bias",     cfg.isam.threshold.bias);
+    load_param("ISAM.relinearizeThreshold.landmark", cfg.isam.threshold.landmark);
+
+    load_param("calibration.time", cfg.cal.time);
+    load_param("calibration.accel", cfg.cal.accel);
+    load_param("calibration.gyro", cfg.cal.gyro);
 
 
     std::vector<double> tL, RL;
-    node->get_parameter("lidar2baselink.t", tL);
-    node->get_parameter("lidar2baselink.R", RL);
+    load_param("lidar2baselink.t", tL);
+    load_param("lidar2baselink.R", RL);
 
     Eigen::Quaterniond qL =
         Eigen::AngleAxisd(RL[0] * M_PI / 180.0, Eigen::Vector3d::UnitX()) *
@@ -222,8 +236,8 @@ void fill_config(Config &cfg, rclcpp::Node *node) {
     cfg.lidar2baselink = Eigen::Translation3d(Eigen::Vector3d(tL[0], tL[1], tL[2])) * qL;
 
     std::vector<double> tI, RI;
-    node->get_parameter("imu2baselink.t", tI);
-    node->get_parameter("imu2baselink.R", RI);
+    load_param("imu2baselink.t", tI);
+    load_param("imu2baselink.R", RI);
 
     Eigen::Quaterniond qI =
         Eigen::AngleAxisd(RI[0] * M_PI / 180.0, Eigen::Vector3d::UnitX()) *
