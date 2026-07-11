@@ -32,7 +32,7 @@ class Manager : public rclcpp::Node {
 
   public:
 
-    Manager() : Node("g_slam",
+    Manager() : Node("grandSLAM",
                 rclcpp::NodeOptions().
                 allow_undeclared_parameters(true).
                 automatically_declare_parameters_from_overrides(true)), tfBr(*this) {
@@ -40,6 +40,23 @@ class Manager : public rclcpp::Node {
         Config &cfg = Config::getInstance();
         fill_config(cfg, this);
     
+        // rclcpp::SubscriptionOptions lidar_opt, imu_opt;
+        // lidar_opt.callback_group = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+        // imu_opt.callback_group = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+
+        // imuSub = this->create_subscription<sensor_msgs::msg::Imu>(
+        //     cfg.topics.input.imu, rclcpp::QoS(rclcpp::KeepLast(1)),
+        //     std::bind(&Manager::imuCallback, this, std::placeholders::_1),
+        //     imu_opt
+        // );
+
+        // coneSub = this->create_subscription<cat_msgs::msg::ConeArray>(
+        //     cfg.topics.input.cones, rclcpp::QoS(rclcpp::KeepLast(1)),
+        //     std::bind(&Manager::conesCallback, this, std::placeholders::_1),
+        //     lidar_opt
+        // );
+
         imuSub = this->create_subscription<sensor_msgs::msg::Imu>(
             cfg.topics.input.imu, rclcpp::QoS(rclcpp::KeepLast(1)),
             std::bind(&Manager::imuCallback, this, std::placeholders::_1)

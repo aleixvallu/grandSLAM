@@ -37,7 +37,7 @@ Cones fromROS(const cat_msgs::msg::ConeArray::ConstSharedPtr &msg, const Eigen::
     
     Cones cones;
     for (const auto &p : msg->cones) {
-        Cone cone(p.position_base_link.x, p.position_base_link.y,  p.position_base_link.z);
+        Cone cone(p.position_base_link.x, p.position_base_link.y,  p.position_base_link.z, p.confidence);
         cone = lidar2imu * cone;
         cones.push_back(cone);
     }
@@ -119,9 +119,12 @@ visualization_msgs::msg::MarkerArray toROS(const Cones &cones, const rclcpp::Tim
 
         // fully opaque
         msg.markers[i].color.a = 1.0f;
-        msg.markers[i].color.r = 0.5f; 
-        msg.markers[i].color.g = 0.5f;
-        msg.markers[i].color.b = 0.5f;
+        // msg.markers[i].color.r = 0.5f; 
+        // msg.markers[i].color.g = 0.5f;
+        float confidence = cones[i].confidence;
+        msg.markers[i].color.r =  (confidence < 0.75f) ? 1.f : 1.f - confidence;
+        msg.markers[i].color.g = (confidence < 0.75f) ? confidence : 1.f;
+        msg.markers[i].color.b = 0.0f;
 
     }
     return msg;

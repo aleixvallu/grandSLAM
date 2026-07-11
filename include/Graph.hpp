@@ -46,7 +46,7 @@ class Graph {
 
     PreintegratedCombinedMeasurements preImu;
 
-
+    Eigen::Isometry3d lidar2imu;
     
     NavState prevX;
     NavState state;
@@ -62,13 +62,24 @@ class Graph {
 	double n = 0.0; // Intercept
 
     as_lib::structures::Octree<Cone> octree;
-    std::unordered_map<int, Point3> landmarks;
+
+    struct Landmark {
+        int nObs = 10;
+        float confidence = 0.5;
+        Point3 position;
+
+        void update(float c) {
+            nObs++;
+            confidence += (c - confidence) / nObs;
+        }
+    };
+    std::unordered_map<int, Landmark> landmarks;
 
 public:
 
     Graph() {}
 
-    void init(double time){
+    void init(double stamp){
 
         Config &cfg = Config::getInstance();
 
@@ -90,9 +101,9 @@ public:
         initial.insert(V(nImu), v0);
         initial.insert(B(nImu), biasImu);
 
-        timestamps[X(nImu)] = time;
-        timestamps[V(nImu)] = time;
-        timestamps[B(nImu)] = time;
+        timestamps[X(nImu)] = stamp;
+        timestamps[V(nImu)] = stamp;
+        timestamps[B(nImu)] = stamp;
 
         // Noise
         auto poseNoise = noiseModel::Isotropic::Sigma(6, cfg.cov.initial.pose);  // rad, rad, rad, m, m, m  
@@ -150,6 +161,12 @@ public:
         octree.setBucketSize(2);
         octree.setDownsample(false);
         octree.setMinExtent(0.2);
+
+        lidar2imu = cfg.imu2baselink.inverse() * cfg.lidar2baselink;
+
+        std::cout << lidar2imu.translation() << std::endl;
+        std::cout << lidar2imu.rotation() << std::endl;
+
     }
 
 
@@ -162,7 +179,7 @@ public:
     }
 
     // TODO: no afegir sempre que veig un factor, afegirlo cada cert temps/distancia, aixi no tens tants facotrs 
-    void addCones(const Cones &cones, double time) {
+    void addCones(const Cones &cones, double stamp) {
         PROFC_NODE_
         Config &cfg = Config::getInstance();
 
@@ -181,9 +198,9 @@ public:
         initial.insert(V(nImu), nextX.v());
         initial.insert(B(nImu), prevB);
 
-        timestamps[X(nImu)] = time;
-        timestamps[V(nImu)] = time;
-        timestamps[B(nImu)] = time;
+        timestamps[X(nImu)] = stamp;
+        timestamps[V(nImu)] = stamp;
+        timestamps[B(nImu)] = stamp;
 
         Point3 prevPos = prevX.pose().translation();
         Point3 currPos =  nextX.pose().translation();
@@ -196,7 +213,7 @@ public:
             loopClosed = true;
             changed = !changed;
             std::cout << "Loop closed" << std::endl;
-        } else if(changed && nextX.v().x() > 1.0 ){
+        } else if(changed && nextX.v().x() > 3.0 ){
             changed = false;
         }
 
@@ -212,7 +229,7 @@ public:
 
             const Cone &c = cones[i];
             Point3 worldCone = actualPose.transformFrom(c.toEigen());
-            Cone p(worldCone.x(), worldCone.y(), worldCone.z(), nLidar);
+            Cone p(worldCone.x(), worldCone.y(), worldCone.z(), nLidar, c.confidence);
 
             Cones neighbors;
             std::vector<float> sqDistances;
@@ -221,26 +238,32 @@ public:
             if(octree.size() == 0 || sqDistances[0] > cfg.maxSqDist * (1 + 0.5 * loopClosed)) {
                 if(loopClosed) 
                     continue;
+                  
+                landmarks[nLidar].update(c.confidence); 
+                landmarks[nLidar].position = worldCone;
+
 
                 LandmarkFactor lFact(X(nImu), L(nLidar), c.toEigen(), lidarNoise);
                 g.add(lFact);
 
                 
                 initial.insert(L(nLidar), worldCone);
-                timestamps[L(nLidar)] = time;
-                landmarks[nLidar] = worldCone; 
+                timestamps[L(nLidar)] = stamp;
+
 
                 nLidar++;
             } else {
                 int nIdx = neighbors[0].idx;
                 if (timestamps.find(L(nIdx)) == timestamps.end()) {
-                    // if (!landmarks.count(nIdx))
-                        continue;
-                    // initial.insert(L(nIdx), landmarks[nIdx]);
+                    continue;
                 }
+                
+                landmarks[nIdx].update(c.confidence); 
+                // auto noise = 
+
                 LandmarkFactor lFact(X(nImu), L(nIdx), c.toEigen(), lidarNoise);
                 g.add(lFact);
-                timestamps[L(nIdx)] = time;
+                timestamps[L(nIdx)] = stamp;
             }
         }
 
@@ -305,16 +328,23 @@ public:
 
         {
             PROFC_NODE("OCTREE + LDMRKS")
-            for(int i = 0; i < nLidar; i++) {
-                if (result.exists(L(i))) {
-                    landmarks[i] = result.at<Point3>(L(i));
+            for (auto& [idx, p] : landmarks) {
+                if (result.exists(L(idx))) {
+                    p.position = result.at<Point3>(L(idx));
                 }
+            }
+
+            for (auto it = landmarks.begin(); it != landmarks.end(); ) {
+                if (!linPoint.exists(L(it->first)))
+                    it = landmarks.erase(it);
+                else
+                    ++it;
             }
 
             octree.clear();
             Cones toAdd;
             for (const auto& [idx, p] : landmarks) {
-                Cone cone(p.x(), p.y(), p.z(), idx);
+                Cone cone(p.position.x(), p.position.y(), p.position.z(), idx, p.confidence);
                 toAdd.push_back(cone);
             }
             octree.update(toAdd);
@@ -338,6 +368,8 @@ public:
         I.translation() = t();
         return I;
     }
+
+    inline Eigen::Isometry3d L2I_isometry() const { return lidar2imu; }
     
     // TODO: posar w si la utilitzo
     Eigen::Matrix< double, 6, 1 > v_w() const
